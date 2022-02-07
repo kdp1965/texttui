@@ -6,6 +6,8 @@ TextTUI is a set of extensions to the Textual and Textual-Inputs libraries.  Cur
 
 > **DISCLAIMER:** I have been writing C/C++ code since 1986, but Python code only since November, 2021!  I know this project is not packaged in a standard "Python way" ... I am still learning / trying to figure out how to do that.  Take it for what it is.
 
+![screenshot](./imgs/texttui.png)
+
 ## Installation
 
 As mentioned in my disclaimer, I am still very new to Python and haven't yet trained myself how to create appropriate packages to specify dependencies or use 'pip install'.  For now, simply install the required dependent packages manually:
