@@ -20,8 +20,12 @@ pip3 install textual-inputs
 
 The example app was tested using Python 3.9 (it probabably works with 3.8 also).  To run the app:
 
-  python3.9 sample_tui.py
+```python
+python3.9 sample_tui.py
+```
 
 ## Structure
 
 The extended Textual widgets, layouts, etc. are in the 'tui' subdirectory (yes, I know, these should be in a 'src' directory eventually).  
+
+
