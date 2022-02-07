@@ -58,3 +58,11 @@ The library currently offers the following widgets:
  - Radio button
  - Tab control
 
+## Known Bugs
+
+ - If the console window is not tall enough, the display is garbled until the first resize.
+ - If the console window is too narrow for all the Tabs, the rightmost tabs will not be displayed correctly.
+ - The Plot control annotations can mess up the display if the annotation is on top of rendered graphics.
+ - If emojis are added to the Tab control which are "double wide", the right border doesn't display correctly.
+
+

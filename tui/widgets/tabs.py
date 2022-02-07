@@ -369,7 +369,7 @@ class TabsRenderable(JupyterMixin):
         for l in lines:
             new_l = []
             col = 0
-            emojis = [ "⚫", '🌕', '👉', "🔳", "✅", '🔵', '🔴', '⚪' ]
+            emojis = [ "⚫", '🌕', '👉', "🔳", "✅", '🔵', '🔴', '⚪', "❎" ]
             for s in l:
                 if isinstance(s, Segment) and not "\x1b" in s.text:
                     new_l.append(s)
