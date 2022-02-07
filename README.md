@@ -28,4 +28,33 @@ python3.9 sample_tui.py
 
 The extended Textual widgets, layouts, etc. are in the 'tui' subdirectory (yes, I know, these should be in a 'src' directory eventually).  
 
+    texttui
+    |
+    +--imgs        Images for the README.md
+    |
+    +--fft_data    FFT Magnitude data for the FFT Plot tab
+    |
+    +--tui
+       |
+       +-- layouts   Extended Textual layouts (control panel)
+       |
+       +-- views     Extended Textual views (control panel)
+       |
+       +-- widgets   Extended Textual widgets
+
+## Extended Widgets
+
+The library currently offers the following widgets:
+
+ - Check button
+ - CliInput
+ - Droplist
+ - Dynamic (a widget that posts to it's parent when it is updated)
+ - DynamicTable
+ - FixedTitleTextInput (a Textual-inputs TextInput extension)
+ - HoverButton (changes color when mouse is over it)
+ - Label (static)
+ - Plot widget
+ - Radio button
+ - Tab control
 

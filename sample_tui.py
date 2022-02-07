@@ -120,7 +120,7 @@ class FftPlot(TuiPlot):
         lastx = 0
         lasty = fft[0]
         x = 0
-        harmonic_bins = [860, 1290, 1755]
+        harmonic_bins = [860, 1290, 1760]
         spur_bins = [610, 1040, 1160]
         signal_bin = 420
         pop_bins = [460]
