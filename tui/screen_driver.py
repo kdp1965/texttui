@@ -14,7 +14,10 @@ from rich.console import Console
 from textual import events
 from textual._types import MessageTarget
 from textual._xterm_parser import XTermParser
-from textual._linux_driver import LinuxDriver
+try:
+    from textual.drivers.linux_driver import LinuxDriver
+except:
+    from textual._linux_driver import LinuxDriver
 
 
 class ScreenDriver(LinuxDriver):

@@ -24,7 +24,10 @@ class FixedTitleTextInput(TextInput):
                 else:
                     segments = [self.placeholder]
             else:
-                segments = [self._conceal_or_reveal(self.value)]
+                if hasattr(self, '_conceal_or_reveal'):
+                    segments = [self._conceal_or_reveal(self.value)]
+                else:
+                    segments = [self._modify_text(self.value)]
 
         text = Text.assemble(*segments)
 
