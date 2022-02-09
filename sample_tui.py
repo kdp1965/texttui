@@ -91,7 +91,7 @@ class FftPlot(TuiPlot):
         self.add_x_label(Text("Frequency (GHz)",style=Style(color="blue")))
         self.add_x_axis(PlotAxis(0, 8, 9, ".2f"), style=Style(color="navajo_white1"))
         self.add_y_label(Text("Amplitude / dBM",style=Style(color="yellow")))
-        self.add_y_axis(PlotAxis(0, -120, 7, ".0f"))
+        self.add_y_axis(PlotAxis(0, -120, 7, ".0f"), style=Style(color="navajo_white1"))
         self.add_annotation(560, -10, Text("ENOB: 8.2",style=Style(color="bright_yellow")))
         self.add_annotation(560, -15, Text("SNR:  48.7",style=Style(color="bright_yellow")))
         self.add_title(Text("ADC 1 - 12 Bit",style=Style(color="bright_blue")))
