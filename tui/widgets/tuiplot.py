@@ -49,9 +49,12 @@ class TuiPlot(Widget):
         self.border = border
         self.y_label = None
         self.y_axis = None
+        self.y_axis_style = None
         self.x_label = None
         self.x_axis = None
+        self.x_axis_style = None
         self.annotations = []
+        self.title = None
 
     def render(self) -> RenderableType:
         """ Renders the graph canvas to a Panel with unicode characters """
@@ -117,18 +120,22 @@ class TuiPlot(Widget):
             text_lines.append(text)
 
         # Render annotations
-        self.render_annotations(text_lines)
+        self.render_annotations(y_axis_width, text_lines)
 
         # Add Y axis
+        if self.y_axis_style is not None:
+            axis_color = f'[{self.x_axis_style.color.name}]'
+        else:
+            axis_color = '[white]'
         if self.y_axis is not None:
             lines = [int(i * int(self.plot_height/4) / (self.y_axis.divisions-1)) for i in range(self.y_axis.divisions)]
             index = 0
             res = {lines[i] : y_vals[i] for i in range(len(y_vals))}
             for l in text_lines:
                 if index in res:
-                    l = f"[white]{res[index]:>{y_axis_width}}├" + l
+                    l = f"{axis_color}{res[index]:>{y_axis_width}}├" + l
                 else:
-                    l = f"[white]{' ' * y_axis_width}│" + l
+                    l = f"{axis_color}{' ' * y_axis_width}│" + l
                 text_lines[index] = l
                 index += 1
 
@@ -138,26 +145,31 @@ class TuiPlot(Widget):
             x_offset += 2
             label_str = str(self.y_label).center(len(text_lines))
             for l in text_lines:
-                l = f"[white]{label_str[index]} " + l
-                text_lines[index] = l
+                if isinstance(self.y_label, Text):
+                    text_lines[index] = f"[{self.y_label.style.color.name}]{label_str[index]} " + l
+                else:
+                    text_lines[index] = f"[white]{label_str[index]} " + l
                 index += 1
 
         # Add X axis
         if self.x_axis is not None:
             centers = [int(i * (axis_width-1) / (self.x_axis.divisions-1)) for i in range(self.x_axis.divisions)]
 
+            if self.x_axis_style is not None:
+                axis_color = f'[{self.x_axis_style.color.name}]'
+            else:
+                axis_color = '[white]'
             axis_text = "└" + "─" * (axis_width-2) + "┘\n"
             for i in range(len(centers)):
                 if i != 0 and i != len(centers)-1:
                     axis_text = axis_text[:centers[i]] + '┴' + axis_text[centers[i]+1:]
             if self.y_axis:
-                axis_text = (" " * (x_offset-y_axis_width)) + f'[white]{y_vals[-1]:>{y_axis_width}}' + axis_text
+                axis_text = (" " * (x_offset-y_axis_width)) + f'{y_vals[-1]:>{y_axis_width}}' + axis_text
             else:
-                axis_text = (" " * x_offset) + "[white]" + axis_text
-            text_lines.append(axis_text)
+                axis_text = (" " * x_offset) + axis_color + axis_text
+            text_lines.append(axis_color + axis_text)
             x_span = self.x_axis.max_value - self.x_axis.min_value
             axis_text = ''
-
 
             for i in range(self.x_axis.divisions):
                 ratio = i / float(self.x_axis.divisions-1)
@@ -166,14 +178,19 @@ class TuiPlot(Widget):
                 axis_str_len = len(axis_str)
                 if i == 0:
                     axis_text += axis_str
-                    axis_text += ' ' * (axis_width - axis_str_len)
+                    axis_text += ' ' * (axis_width - axis_str_len-1)
+                elif i == self.x_axis.divisions - 1:
+                    pass
+                    axis_text = axis_text[:-axis_str_len] + ' ' + axis_str
+                    #axis_text +=  axis_str
                 else:
                     # Substitute text in the axis_text string
                     pre_len = int(axis_str_len/2)
-                    axis_text = axis_text[:centers[i]-pre_len] + axis_str + axis_text[centers[i]+axis_str_len:]
+                    rem = axis_str_len - pre_len
+                    axis_text = axis_text[:centers[i]-pre_len] + axis_str + axis_text[centers[i]-pre_len+axis_str_len:]
 
             axis_text += '\n'
-            text_lines.append(("[white]" + " " * x_offset) + axis_text)
+            text_lines.append((axis_color + " " * x_offset) + axis_text)
 
         # Add X label
         if self.x_label is not None:
@@ -181,11 +198,19 @@ class TuiPlot(Widget):
                 text = f"[{self.x_label.style.color.name}]" + str(self.x_label).center(axis_width)
             else:
                 text = "[white]" + self.x_label.center(axis_width)
-            text += "\n"
             text_lines.append(text)
 
+        # Render the Title, if any
+        if self.title is not None:
+            text = str(self.title).center(self.width)
+            if isinstance(self.title, Text):
+                text = f'[{self.title.style.color.name}]' + text + '\n'
+        else:
+            text = ''
+ 
         # Return the renderable
-        text = ''.join(text_lines)
+        text += ''.join(text_lines)
+
         if self.border:
             return Panel(
                     text,
@@ -212,10 +237,14 @@ class TuiPlot(Widget):
         """ Sets the plot window height in rows """
 
         self.height = height
-        self.plot_height = (height - 2) * 4
+        self.plot_height = (height -1) * 4
+        if self.border:
+            self.plot_height -= 4
         if self.x_label is not None:
             self.plot_height -= 4
         if self.x_axis is not None:
+            self.plot_height -= 4
+        if self.title is not None:
             self.plot_height -= 4
 
     def set_width(self, width: int) -> None:
@@ -333,27 +362,33 @@ class TuiPlot(Widget):
         """ Add a Y label to the graph """
         self.y_label = label
 
-    def add_x_axis(self, axis: PlotAxis) -> None:
+    def add_title(self, title: str | Text) -> None:
+        """ Add a Y label to the graph """
+        self.title = title
+
+    def add_x_axis(self, axis: PlotAxis, style: StyleType | None = None) -> None:
         """ Add an X axis to the graph """
         self.x_axis = axis
+        self.x_axis_style = style
 
-    def add_y_axis(self, axis: PlotAxis) -> None:
+    def add_y_axis(self, axis: PlotAxis, style: StyleType | None = None) -> None:
         """ Add an Y axis to the graph """
         self.y_axis = axis
+        self.y_axis_style = style
 
     def add_annotation(self, x: float, y: float, text: Text) -> None:
         """ Add a Text annotation at the given coordinate """
 
         self.annotations.append(PlotAnnotation(x, y, text))
 
-    def render_annotations(self, text_lines: list(str)) -> None:
+    def render_annotations(self, y_axis_width: int, text_lines: list(str)) -> None:
         """ Renders text annotations to the list of strings rendered from the canvas """
 
         if len(self.annotations) == 0:
             return
         
         # Account for frame and padding
-        xscale = self.plot_width / (self.x_max - self.x_min)
+        xscale = (self.plot_width-y_axis_width) / (self.x_max - self.x_min)
         yscale = self.plot_height / (self.y_max - self.y_min)
 
         x_min = int(self.x_min * xscale)
@@ -366,27 +401,54 @@ class TuiPlot(Widget):
             x = int(a.x * xscale / 2)
             y = len(text_lines) - int((a.y * yscale - y_min) / 4) - 1
 
+            restore_color = ''
+            an_text = str(a.text)
+
             # Find the 'x' location within the 'y' string
-            if y>= 0 and y < len(text_lines):
+            if y>= 0 and y < len(text_lines) and x >= x_min and x < x_max:
                 text_len = 0
                 s = text_lines[y]
                 in_attr = False
                 for idx in range(len(s)):
                     if s[idx] == '[':
                         in_attr = True
+                        restore_color = ''
                     elif in_attr:
                         if s[idx] == ']':
                             in_attr = False
+                        else:
+                            restore_color += s[idx]
                     else:
                         # Test if we found the insertion point
                         if text_len == x:
                             break
                         text_len += 1
 
+                # Strip out len(a.text) characters after this, taking into account
+                # that the string might contain [color] modifiers
+                rem = len(a.text)
+                loc = idx
+                in_attr = False
+                end_text = s[idx:]
+                repl = ''
+                try:
+                    while rem > 0:
+                        if s[loc] == '[':
+                            in_attr = True
+                        elif s[loc] == ']':
+                            in_attr = False
+                        elif not in_attr:
+                            repl += s[loc]
+                            rem -= 1
+                        loc += 1
+                    post = s[loc:]
+                except IndexError:
+                    post = '\n'
+                    an_text = an_text[:-rem-3]
+
                 # Insert the text at 'idx' within the string
                 if isinstance(a.text, Text):
-                    s = s[:idx] + f"[{a.text.style.color.name}]" + str(a.text) + s[idx+len(a.text):]
+                    text_lines[y] = s[:idx] + f"[{a.text.style.color.name}]" + an_text + f"[{restore_color}]" + post
                 else:
-                    s = s[:idx] + f"[white]" + str(a.text) + s[idx+len(a.text):]
-                text_lines[y] = s
+                    text_lines[y] = s[:idx] + f"[white]" + an_text + post
 
