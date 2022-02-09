@@ -8,6 +8,13 @@ from rich.text import Text
 from textual.reactive import Reactive
 from textual.widget import Widget
 import math
+from typing import NamedTuple
+
+class PlotExtents(NamedTuple):
+    xmin: int
+    xmax: int
+    ymin: int
+    ymax: int
 
 @dataclass
 class PlotAxis:
@@ -55,6 +62,8 @@ class TuiPlot(Widget):
         self.x_axis_style = None
         self.annotations = []
         self.title = None
+        self.absolute_coords = False
+        self.enable_block_chars = False
 
     def render(self) -> RenderableType:
         """ Renders the graph canvas to a Panel with unicode characters """
@@ -88,15 +97,22 @@ class TuiPlot(Widget):
         # ============================================
         save_width = self.plot_width
         self.plot_width -= y_axis_width
+        if self.absolute_coords:
+            self.set_x_extents(0, self.plot_width)
+            self.set_y_extents(0, self.plot_height)
         self.render_canvas()
         self.plot_width = save_width
 
         # Convert the canvas to and ASCII representation
         text_lines = []
         c = self.canvas
-        color = "none"
+        color = None
+        bold = False
         for y in range(self.plot_height-4,-1,-4):
-            text = f"[{color}]"
+            if color is not None:
+                text = f"[{color}]"
+            else:
+                text = ""
             for x in range(0,self.plot_width,2):
                 p =  c[y+0][x] * 64
                 p += c[y+1][x] * 4
@@ -110,12 +126,28 @@ class TuiPlot(Widget):
                 if p == 0:
                     text += ' '
                 else:
-                    pp = self.palette[int(y/4)][int(x/2)].color.name
-                    if pp != color:
-                        text += f"[{pp}]{chr(10240 + p)}"
-                        color = pp
+                    if p == 255 and self.enable_block_chars:
+                        ch = "█"
                     else:
-                        text += f"{chr(10240 + p)}"
+                        ch = chr(10240 + p)
+                    pp = self.palette[int(y/4)][int(x/2)]
+                    if pp is not None:
+                        if color is None or pp.color.name != color.color.name:
+                            modifier = ""
+                            if pp.bold:
+                                modifier = "bold "
+                                bold = True
+                            elif bold:
+                                modifier = "not bold "
+                                bold = False
+                            else:
+                                modifier = ""
+                            text += f"[{modifier}{pp.color.name}]{ch}"
+                            color = pp
+                        else:
+                            text += ch
+                    else:
+                        text += ch
             text += "\n"
             text_lines.append(text)
 
@@ -338,11 +370,14 @@ class TuiPlot(Widget):
                 err -= 1
             x += 1
 
-    def push_line_color(self, color: str) -> None:
+    def push_line_color(self, color: str | Style) -> None:
         """ Push a new line color / style to the style stack. """
 
         self.style_stack.append(self.style)
-        self.style = Style(color = color)
+        if isinstance(color, Style):
+            self.style = color
+        else:
+            self.style = Style(color = color)
 
     def pop_line_color(self) -> None:
         """ Pop the current line color / style from the style stack. """
@@ -451,4 +486,103 @@ class TuiPlot(Widget):
                     text_lines[y] = s[:idx] + f"[{a.text.style.color.name}]" + an_text + f"[{restore_color}]" + post
                 else:
                     text_lines[y] = s[:idx] + f"[white]" + an_text + post
+
+    def _putpixel(self, x: int, y: int, ext: PlotExtents) -> None:
+        if x >= ext.xmin and x < ext.xmax and y >= (ext.ymin-ext.ymin) and y < (ext.ymax-ext.ymin):
+            if self.style is not None and self.style.reverse:
+                self.canvas[y][x] = 0
+            else:
+                self.canvas[y][x] = 1
+                self.palette[int(y/4)][int(x/2)] = self.style or self.palette[int(y/4)][int(x/2)]
+
+    def _draw_circle_dots(self, xc: int, yc: int, x: int, y: int, ext: PlotExtents, filled: bool = False) -> None:
+        if filled:
+            x1 = xc-x
+            x2 = xc+x
+            if x1 > x2:
+                x1,x2 = x2, x1
+            for i in range(x1, x2+1):
+                self._putpixel(i, yc+y, ext)
+                self._putpixel(i, yc-y, ext)
+
+            x1 = xc-y
+            x2 = xc+y
+            if x1 > x2:
+                x1,x2 = x2, x1
+            for i in range(x1, x2+1):
+                self._putpixel(i, yc+x, ext)
+                self._putpixel(i, yc-x, ext)
+        else:
+            self._putpixel(xc+x, yc+y, ext)
+            self._putpixel(xc-x, yc+y, ext)
+            self._putpixel(xc+x, yc-y, ext)
+            self._putpixel(xc-x, yc-y, ext)
+            self._putpixel(xc+y, yc+x, ext)
+            self._putpixel(xc-y, yc+x, ext)
+            self._putpixel(xc+y, yc-x, ext)
+            self._putpixel(xc-y, yc-x, ext)
+
+    def draw_circle(self, x: float, y: float, radius: int, filled: bool = False) -> None:
+        """ Renders a circle to the canvas using the current style """
+
+        # Account for frame and padding
+        xscale = self.plot_width / (self.x_max - self.x_min)
+        yscale = self.plot_height / (self.y_max - self.y_min)
+
+        x_min = int(self.x_min * xscale)
+        x_max = int(self.x_max * xscale)
+        y_min = int(self.y_min * yscale)
+        y_max = int(self.y_max * yscale)
+        extents = PlotExtents(x_min, x_max, y_min, y_max)
+
+        xc = int(x * xscale)
+        yc = int(y * yscale) - y_min
+
+        x = 0
+        y = radius
+        d = 3 - 2 * radius
+        self._draw_circle_dots(xc, yc, x, y, extents, filled)
+        while y >= x:
+            x += 1
+            if d > 0:
+                y -= 1
+                d += 4 * (x - y) + 10
+            else:
+                d += 4 * x + 6
+            self._draw_circle_dots(xc, yc, x, y, extents, filled)
+
+    def draw_rect(self, x1: float, y1: float, w: float, h: float, filled: bool = False) -> None:
+        """ Renders a rectangle to the canvas using the current style """
+
+        # For filled rectangle, we draw multiple horizontal lines
+        if filled:
+            # Account for frame and padding
+            xscale = self.plot_width / (self.x_max - self.x_min)
+            yscale = self.plot_height / (self.y_max - self.y_min)
+
+            x_min = int(self.x_min * xscale)
+            x_max = int(self.x_max * xscale)
+            y_min = int(self.y_min * yscale)
+            y_max = int(self.y_max * yscale)
+            extents = PlotExtents(x_min, x_max, y_min, y_max)
+
+            x1 = int(x1 * xscale)
+            x2 = x1 + int(w * xscale)
+            y1 = int(y1 * yscale)
+            y2 = y1 + int(h * yscale)
+
+            if x1 > x2:
+                x1,x2 = x2,x1
+            ydelta = 1
+            if y1 > y2:
+                ydelta = -1
+            for x in range(x1, x2+1):
+                for y in range(y1, y2+ydelta, ydelta):
+                    self._putpixel(x, y, extents)
+        else:
+            # We just need to draw the 4 outline lines
+            self.draw_line(x1, y1, x1+w, y1)
+            self.draw_line(x1, y1+h, x1+w, y1+h)
+            self.draw_line(x1, y1, x1, y1+h)
+            self.draw_line(x2, y1, x1+w, y1+h)
 

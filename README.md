@@ -62,7 +62,7 @@ The library currently offers the following widgets:
 
  - If the console window is not tall enough, the display is garbled until the first resize.
  - If the console window is too narrow for all the Tabs, the rightmost tabs will not be displayed correctly.
- - The Plot control annotations can mess up the display if the annotation is on top of rendered graphics.
  - If emojis are added to the Tab control which are "double wide", the right border doesn't display correctly.
+ - The Plot widget annotations can mess up the display if the annotation is on top of rendered graphics.  This bug has been addressed and tested, but there may still be corner cases that still cause issues.
 
 

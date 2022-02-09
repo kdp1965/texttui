@@ -48,6 +48,75 @@ from tui.views.control_panel_view import ControlPanelView
 from tui.screen_driver import ScreenDriver
 from tui.widgets.dynamic import RenderableUpdate
 
+class Graphics(TuiPlot):
+    def __init__(
+        self,
+        style: StyleType = "white on black",
+        name: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ):
+        """ Initialize an FFT graph with FFT data from a file """
+        super().__init__(style, name, width, height, border=False)
+        self.absolute_coords = True
+
+    def draw_eye(self, x, y):
+        #scale = self.width/170
+        scale = 0.75
+        self.push_line_color(Style(color="white",bold=True))
+        self.draw_circle(x, y, int(30*scale), True)
+        self.pop_line_color()
+        self.push_line_color("bright_blue")
+        self.draw_circle(x, y, int(20*scale), True)
+        self.pop_line_color()
+        self.push_line_color(Style(reverse=True))
+        self.draw_circle(x, y, int(12*scale), True)
+        self.pop_line_color()
+
+        self.push_line_color(Style(color="white",bold=True))
+        self.draw_line(x-5, y+9, x-3, y+12)
+        self.draw_line(x-2, y+2, x-1, y+3)
+        for angle in range(-50, 51, 10):
+            a = angle + 90
+            #x1 = x + math.cos(a/360*2*math.pi) * .25 / 2
+            #y1 = y + math.sin(a/360*2*math.pi) * .25
+            #x2 = x + math.cos(a/360*2*math.pi) * .3 / 2
+            #y2 = y + math.sin(a/360*2*math.pi) * .3
+            x1 = x + math.cos(a/360*2*math.pi) * 55 / 2
+            y1 = y + math.sin(a/360*2*math.pi) * 25
+            x2 = x + math.cos(a/360*2*math.pi) * 65 / 2
+            y2 = y + math.sin(a/360*2*math.pi) * 30
+            self.draw_line(x1, y1, x2, y2)
+        self.pop_line_color()
+
+    def draw_flame(self, x, y):
+        """ Draws the candle flame """
+
+        self.push_line_color(Style(color="bright_yellow",bold=True))
+        self.draw_line(x+2, y+7, x+2, y+12)
+        self.draw_line(x+3, y+3, x+3, y+15)
+        self.draw_line(x+4, y+6, x+4, y+18)
+        self.draw_line(x+5, y+9, x+5, y+20)
+        self.draw_line(x+6, y+6, x+6, y+18)
+        self.draw_line(x+7, y+2, x+7, y+15)
+        self.draw_line(x+8, y+5, x+8, y+10)
+        self.pop_line_color()
+        self.push_line_color("bright_black")
+        self.draw_line(x+5, y, x+5, y+5)
+        self.pop_line_color()
+
+    def render_canvas(self) -> None:
+        """ Draws the a simple sine wave to the bare canvas """
+
+        # Draw a candle 
+        self.push_line_color(Style(color="navajo_white3",bold=False))
+        self.draw_rect(130, 24, 9, 50, True)
+        self.pop_line_color()
+        self.draw_flame(130, 75)
+        
+        self.draw_eye(40, self.plot_height/2)
+        self.draw_eye(90, self.plot_height/2)
+
 class TimePlot(TuiPlot):
     def render_canvas(self) -> None:
         """ Draws the a simple sine wave to the bare canvas """
@@ -463,6 +532,7 @@ class MyApp(App):
         self.body.add_tab("controls", "Controls")
         self.body.add_tab("graph", "Time Plot")
         self.body.add_tab("fft", "FFT Plot")
+        self.body.add_tab("graphics", "Graphics")
 
         # Add content to the command history tab
         cmdText = "[yellow]Command History\n\n[white]This is an example of a Dynamic Widget that displays text which can be changed dynamically."
@@ -484,6 +554,7 @@ class MyApp(App):
         self.body.add_renderable("graph", Dynamic("Time Domain Plot",name="time"))
         self.body.add_renderable("graph", TimePlot(name="graph",style=Style(color="grey63")))
         self.body.add_renderable("fft", FftPlot(name="fft",style=Style(color="grey63")))
+        self.body.add_renderable("graphics", Graphics(name="graphics",style=Style(color="grey63")))
 
         # Create the bottom Command Line Interface (CLI) and the control panel
         self.cmd = CliInput(process_command, name="cli", title="Command Window", height=cli_height)
