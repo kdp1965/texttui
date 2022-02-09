@@ -17,7 +17,7 @@ class Radiobutton(Button):
     def __init__(
         self,
         label: str,
-        style: StyleType = "white on black",
+        style: StyleType = None,
         hover_style: StyleType = "white on grey39",
         name: str | None = None,
         *,
@@ -100,7 +100,7 @@ class RadioGroup:
     def __init__(
         self,
         buttons: str,
-        style: StyleType = "white on black",
+        style: StyleType = None,
         name: str | None = None,
         *,
         selected: str = '',
