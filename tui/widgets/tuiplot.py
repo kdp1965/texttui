@@ -99,8 +99,9 @@ class TuiPlot(Widget):
         self.plot_width -= y_axis_width
         if self.absolute_coords:
             self.set_x_extents(0, self.plot_width)
-            self.set_y_extents(0, self.plot_height)
-        self.render_canvas()
+            self.set_y_extents( self.plot_height, 0)
+        if self.x_min != self.x_max and self.y_min != self.y_max:
+            self.render_canvas()
         self.plot_width = save_width
 
         # Convert the canvas to and ASCII representation
@@ -178,9 +179,9 @@ class TuiPlot(Widget):
             label_str = str(self.y_label).center(len(text_lines))
             for l in text_lines:
                 if isinstance(self.y_label, Text):
-                    text_lines[index] = f"[{self.y_label.style.color.name}]{label_str[index]} " + l
+                    text_lines[index] = f"[not bold {self.y_label.style.color.name}]{label_str[index]} " + l
                 else:
-                    text_lines[index] = f"[white]{label_str[index]} " + l
+                    text_lines[index] = f"[not bold white]{label_str[index]} " + l
                 index += 1
 
         # Add X axis
@@ -188,9 +189,9 @@ class TuiPlot(Widget):
             centers = [int(i * (axis_width-1) / (self.x_axis.divisions-1)) for i in range(self.x_axis.divisions)]
 
             if self.x_axis_style is not None:
-                axis_color = f'[{self.x_axis_style.color.name}]'
+                axis_color = f'[not bold {self.x_axis_style.color.name}]'
             else:
-                axis_color = '[white]'
+                axis_color = '[not bold white]'
             axis_text = "└" + "─" * (axis_width-2) + "┘\n"
             for i in range(len(centers)):
                 if i != 0 and i != len(centers)-1:
@@ -483,9 +484,9 @@ class TuiPlot(Widget):
 
                 # Insert the text at 'idx' within the string
                 if isinstance(a.text, Text):
-                    text_lines[y] = s[:idx] + f"[{a.text.style.color.name}]" + an_text + f"[{restore_color}]" + post
+                    text_lines[y] = s[:idx] + f"[not bold {a.text.style.color.name}]" + an_text + f"[{restore_color}]" + post
                 else:
-                    text_lines[y] = s[:idx] + f"[white]" + an_text + post
+                    text_lines[y] = s[:idx] + f"[not bold white]" + an_text + post
 
     def _putpixel(self, x: int, y: int, ext: PlotExtents) -> None:
         if x >= ext.xmin and x < ext.xmax and y >= (ext.ymin-ext.ymin) and y < (ext.ymax-ext.ymin):
@@ -568,7 +569,7 @@ class TuiPlot(Widget):
 
             x1 = int(x1 * xscale)
             x2 = x1 + int(w * xscale)
-            y1 = int(y1 * yscale)
+            y1 = int(y1 * yscale) - y_min
             y2 = y1 + int(h * yscale)
 
             if x1 > x2:

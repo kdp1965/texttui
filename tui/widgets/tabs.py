@@ -263,7 +263,7 @@ class TabsRenderable(JupyterMixin):
                     w = tab_widths[tabno]-2
                     if w+2 >= rem:
                         w = rem-3
-                    if w > 2:
+                    if w >= 0:
                         yield Segment(box.get_top([w]), border_style)
                         self.tab_extents[t] = (x, x+w+1)
                         x += w+2
@@ -290,6 +290,7 @@ class TabsRenderable(JupyterMixin):
             for t in self.tabs:
                 if tabno >= self.first_tab:
                     w = tab_widths[tabno]-4
+                    #w = tab_widths[tabno]
                     tab = self.tabs[t]
                     if w+5 > rem:
                         w = rem-5
@@ -299,10 +300,15 @@ class TabsRenderable(JupyterMixin):
                         yield Segment(f' {tab.label[:(w-2 if tab.has_close else w)]} {"❎" if tab.has_close else ""}', style)
                         yield Segment(box.mid_right, border_style)
                         rem -= w+4
-                    else:
+                    elif w > -2:
                         yield Segment(box.mid_left, border_style)
-                        yield Segment('-')
+                        yield Segment(f'{tab.label[:w+2]}', style)
                         yield Segment(box.mid_right, border_style)
+                        break
+                    elif w > -3:
+                        yield Segment(box.mid_left, border_style)
+                        yield Segment(box.mid_right, border_style)
+                        break
                 else:
                     self.prev_tab = t
                 tabno += 1
@@ -329,12 +335,22 @@ class TabsRenderable(JupyterMixin):
                     if w+5 > rem:
                         w = rem-5
                     if t == self.selected:
-                        yield Segment(box.bottom_right + f'{" ":{w+2}}' + box.bottom_left, border_style)
+                        if w > -2:
+                            yield Segment(box.bottom_right + f'{" ":{w+2}}' + box.bottom_left, border_style)
+                            rem -= w+4
                     else:
-                        yield Segment(box.bottom_divider + f'{box.bottom*(w+2)}' + box.bottom_divider, border_style)
-                    rem -= w+4
+                        if w > -3:
+                            yield Segment(box.bottom_divider + f'{box.bottom*(w+2)}' + box.bottom_divider, border_style)
+                            rem -= w+4
+                            if w < tab_widths[tabno]-4:
+                                break
+                        elif w == -3:
+                            yield Segment(box.bottom, border_style)
+                            rem -= 1
+                            break
                 tabno += 1
-            yield Segment(f"{box.top*(width-total_width-3)}{box.top_right}", border_style)
+            #yield Segment(f"{box.top*(width-total_width-3)}{box.top_right}", border_style)
+            yield Segment(f"{box.top*(rem-1)}{box.top_right}", border_style)
         yield new_line
 
     def render_tab_content(self,

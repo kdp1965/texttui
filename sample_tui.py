@@ -74,8 +74,8 @@ class Graphics(TuiPlot):
         self.pop_line_color()
 
         self.push_line_color(Style(color="white",bold=True))
-        self.draw_line(x-5, y+9, x-3, y+12)
-        self.draw_line(x-2, y+2, x-1, y+3)
+        self.draw_line(x-5, y-9, x-3, y-12)
+        self.draw_line(x-2, y-2, x-1, y-3)
         for angle in range(-50, 51, 10):
             a = angle + 90
             #x1 = x + math.cos(a/360*2*math.pi) * .25 / 2
@@ -83,9 +83,9 @@ class Graphics(TuiPlot):
             #x2 = x + math.cos(a/360*2*math.pi) * .3 / 2
             #y2 = y + math.sin(a/360*2*math.pi) * .3
             x1 = x + math.cos(a/360*2*math.pi) * 55 / 2
-            y1 = y + math.sin(a/360*2*math.pi) * 25
+            y1 = y - math.sin(a/360*2*math.pi) * 25
             x2 = x + math.cos(a/360*2*math.pi) * 65 / 2
-            y2 = y + math.sin(a/360*2*math.pi) * 30
+            y2 = y - math.sin(a/360*2*math.pi) * 30
             self.draw_line(x1, y1, x2, y2)
         self.pop_line_color()
 
@@ -93,16 +93,16 @@ class Graphics(TuiPlot):
         """ Draws the candle flame """
 
         self.push_line_color(Style(color="bright_yellow",bold=True))
-        self.draw_line(x+2, y+7, x+2, y+12)
-        self.draw_line(x+3, y+3, x+3, y+15)
-        self.draw_line(x+4, y+6, x+4, y+18)
-        self.draw_line(x+5, y+9, x+5, y+20)
-        self.draw_line(x+6, y+6, x+6, y+18)
-        self.draw_line(x+7, y+2, x+7, y+15)
-        self.draw_line(x+8, y+5, x+8, y+10)
+        self.draw_line(x+2, y-7, x+2, y-12)
+        self.draw_line(x+3, y-3, x+3, y-15)
+        self.draw_line(x+4, y-6, x+4, y-18)
+        self.draw_line(x+5, y-9, x+5, y-20)
+        self.draw_line(x+6, y-6, x+6, y-18)
+        self.draw_line(x+7, y-2, x+7, y-15)
+        self.draw_line(x+8, y-5, x+8, y-10)
         self.pop_line_color()
         self.push_line_color("bright_black")
-        self.draw_line(x+5, y, x+5, y+5)
+        self.draw_line(x+5, y, x+5, y-5)
         self.pop_line_color()
 
     def render_canvas(self) -> None:
@@ -110,9 +110,10 @@ class Graphics(TuiPlot):
 
         # Draw a candle 
         self.push_line_color(Style(color="navajo_white3",bold=False))
-        self.draw_rect(130, 24, 9, 50, True)
+        candle_y = self.plot_height/2-23
+        self.draw_rect(130, candle_y, 9, 50, True)
         self.pop_line_color()
-        self.draw_flame(130, 75)
+        self.draw_flame(130, candle_y-2)
         
         self.draw_eye(40, self.plot_height/2)
         self.draw_eye(90, self.plot_height/2)
@@ -199,13 +200,13 @@ class FftPlot(TuiPlot):
         pop_bins.extend([b+35 for b in spur_bins])
         for f in fft:
             if x == 420:
-                self.push_line_color("bright_green")
+                self.push_line_color(Style(color="bright_green",bold=True))
             elif x in pop_bins:
                 self.pop_line_color()
             elif x in harmonic_bins:
-                self.push_line_color("bright_blue")
+                self.push_line_color(Style(color="bright_blue",bold=True))
             elif x in spur_bins:
-                self.push_line_color("bright_red")
+                self.push_line_color(Style(color="bright_red",bold=True))
 
             self.draw_line(lastx, lasty, x, f)
             lastx = x
