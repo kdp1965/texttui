@@ -1,13 +1,17 @@
+# =================================================================================
+# This is an example TUI app that uses ALL of the extended widgets.
+# =================================================================================
+
 from __future__ import annotations
 
 import os
 import sys
-
-import rich
 import rich.repr
 import io
 import math
 from contextlib import redirect_stdout
+
+import rich
 from rich import box
 from rich import print
 from rich.console import RenderableType
@@ -18,7 +22,6 @@ from rich.style import Style
 from rich import inspect
 from rich import get_console
 from rich.protocol import is_renderable
-
 from rich.syntax import Syntax
 from rich.traceback import Traceback
 from rich.text import Text
@@ -34,45 +37,47 @@ from textual.widgets import Header, Footer, FileClick, ScrollView, DirectoryTree
 from textual.views import GridView, WindowView
 from textual.layouts.grid import GridLayout
 from textual._timer import Timer
-
 from textual.widgets import Button, ButtonPressed
 from textual.widget import Reactive, Widget
-
 from textual_inputs import TextInput
 
-# Custom control import
+# Import our extended widgets
 from tui import Checkbutton, Radiobutton, RadioGroup, Droplist, ListCollapse, CliInput, HoverButton, Label
-from tui import RowHeightUpdate, Tabs, Dynamic, DynamicTable, TuiPlot, PlotAxis
+from tui import RowHeightUpdate, Tabs, Dynamic, DynamicTable, TuiPlot, PlotAxis, Erase
 from tui.widgets.fixed_title_textinput import FixedTitleTextInput
 from tui.views.control_panel_view import ControlPanelView
 from tui.screen_driver import ScreenDriver
 from tui.widgets.dynamic import RenderableUpdate
 
+# ===================================================
+# A class to render the "Graphics" tab images
+# ===================================================
 class Graphics(TuiPlot):
     def __init__(
         self,
-        style: StyleType = "white on black",
+        style: StyleType = None,
         name: str | None = None,
         width: int | None = None,
         height: int | None = None,
     ):
-        """ Initialize an FFT graph with FFT data from a file """
+        """ Initialize a Graphics graph with image rending test routines """
+
         super().__init__(style, name, width, height, border=False)
         self.absolute_coords = True
 
     def draw_eye(self, x, y):
-        #scale = self.width/170
-        scale = 0.75
-        self.push_line_color(Style(color="white",bold=True))
-        self.draw_circle(x, y, int(30*scale), True)
-        self.pop_line_color()
-        self.push_line_color("bright_blue")
-        self.draw_circle(x, y, int(20*scale), True)
-        self.pop_line_color()
-        self.push_line_color(Style(reverse=True))
-        self.draw_circle(x, y, int(12*scale), True)
-        self.pop_line_color()
+        """ Test suite for draw_circle and draw_line """
 
+        # Draw the eyeball (3 concenric circles with different radius and color)
+        scale = 0.75
+        self.draw_circle(x, y, int(30*scale), filled=True, color=Style(color="white",bold=True))
+        self.draw_circle(x, y, int(20*scale), filled=True, color="bright_blue")
+
+        # NOTE: Erase() is defined as Style(conceal=True) which is a color that
+        #       erases dots (sets them to zero) vs. drawing with a background color
+        self.draw_circle(x, y, int(12*scale), filled=True, color=Erase())
+
+        # Draw the eyelashes
         self.push_line_color(Style(color="white",bold=True))
         self.draw_line(x-5, y-9, x-3, y-12)
         self.draw_line(x-2, y-2, x-1, y-3)
@@ -101,18 +106,16 @@ class Graphics(TuiPlot):
         self.draw_line(x+7, y-2, x+7, y-15)
         self.draw_line(x+8, y-5, x+8, y-10)
         self.pop_line_color()
-        self.push_line_color("bright_black")
-        self.draw_line(x+5, y, x+5, y-5)
-        self.pop_line_color()
+
+        # Draw the wick
+        self.draw_line(x+5, y, x+5, y-5, color="bright_black")
 
     def render_canvas(self) -> None:
-        """ Draws the a simple sine wave to the bare canvas """
+        """ Draws a candel and two eyes as a unittest """
 
         # Draw a candle 
-        self.push_line_color(Style(color="navajo_white3",bold=False))
         candle_y = self.plot_height/2-23
-        self.draw_rect(130, candle_y, 9, 50, True)
-        self.pop_line_color()
+        self.draw_rect(130, candle_y, 9, 50, filled=True, color=Style(color="navajo_white3"))
         self.draw_flame(130, candle_y-2)
         
         self.draw_eye(40, self.plot_height/2)
@@ -138,7 +141,7 @@ class TimePlot(TuiPlot):
 class FftPlot(TuiPlot):
     def __init__(
         self,
-        style: StyleType = "white on black",
+        style: StyleType = None,
         name: str | None = None,
         width: int | None = None,
         height: int | None = None,
@@ -159,7 +162,7 @@ class FftPlot(TuiPlot):
 
         self._timer = None
         self.add_x_label(Text("Frequency (GHz)",style=Style(color="blue")))
-        self.add_x_axis(PlotAxis(0, 8, 9, ".2f"), style=Style(color="navajo_white1"))
+        self.add_x_axis(PlotAxis(0, 8, 9, ".1f"), style=Style(color="navajo_white1"))
         self.add_y_label(Text("Amplitude / dBM",style=Style(color="yellow")))
         self.add_y_axis(PlotAxis(0, -120, 7, ".0f"), style=Style(color="navajo_white1"))
         self.add_annotation(560, -10, Text("ENOB: 8.2",style=Style(color="bright_yellow")))
@@ -305,7 +308,7 @@ class Controls(ControlPanelView, can_focus=True):
         HEADER = "white on dark_sea_green4"
         control_panel_label = Label("Control Panel", style=HEADER, align="center")
         self.panel = [
-                # The top label that spans both columns.  NOTE: Column spans can be added seperately also (see below)
+            # The top label that spans both columns.  NOTE: Column spans can be added seperately also (see below)
             {'row': "name='title',size=1,spacer=1,span='col1|col2'", 'controls' : [ control_panel_label ] },
 
             # Actual controls
@@ -536,7 +539,9 @@ class MyApp(App):
         self.body.add_tab("graphics", "Graphics")
 
         # Add content to the command history tab
-        cmdText = "[yellow]Command History\n\n[white]This is an example of a Dynamic Widget that displays text which can be changed dynamically."
+        cmdText = "[yellow]Command History\n\n[white]This is an example of a Dynamic Widget that displays text which can be changed dynamically.\n\n"
+        cmdText += 'Try a command in the Command Window something like:\n  x=Panel.fit("\[on red]Hello World",style="on blue")\n'
+        cmdText += '  print(x)\n  inspect(x)'
         cmdHistory = Dynamic(cmdText,name="history")
         self.body.add_renderable("history", cmdHistory, True)
 

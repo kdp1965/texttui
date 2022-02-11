@@ -10,6 +10,10 @@ from textual.widget import Widget
 import math
 from typing import NamedTuple
 
+class Erase(Style):
+    def __init__(self):
+        super().__init__(conceal=True)
+
 class PlotExtents(NamedTuple):
     xmin: int
     xmax: int
@@ -288,8 +292,17 @@ class TuiPlot(Widget):
         if self.y_label is not None:
             self.plot_width -= 2
 
-    def draw_line(self, x1: float, y1: float, x2: float, y2: float) -> None:
+    def draw_line(self,
+            x1: float,
+            y1: float,
+            x2: float,
+            y2: float,
+            color: str | Style | None = None,
+        ) -> None:
         """ Renders a line to the canvas using the current style """
+
+        if color is not None:
+            self.push_line_color(color)
 
         # Account for frame and padding
         xscale = self.plot_width / (self.x_max - self.x_min)
@@ -370,6 +383,9 @@ class TuiPlot(Widget):
                 y += (1 if yr > yl else -1)
                 err -= 1
             x += 1
+
+        if color is not None:
+            self.pop_line_color()
 
     def push_line_color(self, color: str | Style) -> None:
         """ Push a new line color / style to the style stack. """
@@ -490,7 +506,7 @@ class TuiPlot(Widget):
 
     def _putpixel(self, x: int, y: int, ext: PlotExtents) -> None:
         if x >= ext.xmin and x < ext.xmax and y >= (ext.ymin-ext.ymin) and y < (ext.ymax-ext.ymin):
-            if self.style is not None and self.style.reverse:
+            if self.style is not None and self.style.conceal:
                 self.canvas[y][x] = 0
             else:
                 self.canvas[y][x] = 1
@@ -523,8 +539,17 @@ class TuiPlot(Widget):
             self._putpixel(xc+y, yc-x, ext)
             self._putpixel(xc-y, yc-x, ext)
 
-    def draw_circle(self, x: float, y: float, radius: int, filled: bool = False) -> None:
+    def draw_circle(self,
+            x: float,
+            y: float,
+            radius: int,
+            filled: bool = False,
+            color: str | Style | None = None
+        ) -> None:
         """ Renders a circle to the canvas using the current style """
+
+        if color is not None:
+            self.push_line_color(color)
 
         # Account for frame and padding
         xscale = self.plot_width / (self.x_max - self.x_min)
@@ -552,8 +577,21 @@ class TuiPlot(Widget):
                 d += 4 * x + 6
             self._draw_circle_dots(xc, yc, x, y, extents, filled)
 
-    def draw_rect(self, x1: float, y1: float, w: float, h: float, filled: bool = False) -> None:
+        if color is not None:
+            self.pop_line_color()
+
+    def draw_rect(self,
+            x1: float,
+            y1: float,
+            w: float,
+            h: float,
+            filled: bool = False,
+            color: str | Style | None = None
+        ) -> None:
         """ Renders a rectangle to the canvas using the current style """
+
+        if color is not None:
+            self.push_line_color(color)
 
         # For filled rectangle, we draw multiple horizontal lines
         if filled:
@@ -586,4 +624,7 @@ class TuiPlot(Widget):
             self.draw_line(x1, y1+h, x1+w, y1+h)
             self.draw_line(x1, y1, x1, y1+h)
             self.draw_line(x2, y1, x1+w, y1+h)
+
+        if color is not None:
+            self.pop_line_color()
 
