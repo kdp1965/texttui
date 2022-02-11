@@ -10,10 +10,12 @@ from textual.widget import Widget
 import math
 from typing import NamedTuple
 
+# Defines a color that erases dots vs. setting them to a color
 class Erase(Style):
     def __init__(self):
         super().__init__(conceal=True)
 
+# Defines min/max canvas coordinates
 class PlotExtents(NamedTuple):
     xmin: int
     xmax: int
@@ -67,7 +69,8 @@ class TuiPlot(Widget):
         self.annotations = []
         self.title = None
         self.absolute_coords = False
-        self.enable_block_chars = False
+        self.block_chars = 0
+        self._block_char_list = [' ','▘','▖','▍','▝','▀','▞','▛','▗','▚','▄','▙','▐','▜','▟','█']
 
     def render(self) -> RenderableType:
         """ Renders the graph canvas to a Panel with unicode characters """
@@ -119,23 +122,33 @@ class TuiPlot(Widget):
             else:
                 text = ""
             for x in range(0,self.plot_width,2):
-                p =  c[y+0][x] * 64
-                p += c[y+1][x] * 4
-                p += c[y+2][x] * 2
-                p += c[y+3][x] 
-                p += c[y+0][x+1] * 128
-                p += c[y+1][x+1] * 32
-                p += c[y+2][x+1] * 16
-                p += c[y+3][x+1] * 8
+                pp = self.palette[int(y/4)][int(x/2)]
+                block = False
+                if pp is not None:
+                    block = pp.italic
+                    pp._attributes &= ~4
+                if block:
+                    p =  (c[y+0][x]   | c[y+1][x]) * 2
+                    p += (c[y+2][x]   | c[y+3][x])
+                    p += (c[y+0][x+1] | c[y+1][x+1]) * 8
+                    p += (c[y+2][x+1] | c[y+3][x+1]) * 4
+                else:
+                    p =  c[y+0][x] * 64
+                    p += c[y+1][x] * 4
+                    p += c[y+2][x] * 2
+                    p += c[y+3][x] 
+                    p += c[y+0][x+1] * 128
+                    p += c[y+1][x+1] * 32
+                    p += c[y+2][x+1] * 16
+                    p += c[y+3][x+1] * 8
         
                 if p == 0:
                     text += ' '
                 else:
-                    if p == 255 and self.enable_block_chars:
-                        ch = "█"
+                    if block:
+                        ch = self._block_char_list[p]
                     else:
                         ch = chr(10240 + p)
-                    pp = self.palette[int(y/4)][int(x/2)]
                     if pp is not None:
                         if color is None or pp.color.name != color.color.name:
                             modifier = ""
@@ -149,6 +162,7 @@ class TuiPlot(Widget):
                                 modifier = ""
                             text += f"[{modifier}{pp.color.name}]{ch}"
                             color = pp
+                            block = color.italic
                         else:
                             text += ch
                     else:
@@ -312,6 +326,7 @@ class TuiPlot(Widget):
         x_max = int(self.x_max * xscale)
         y_min = int(self.y_min * yscale)
         y_max = int(self.y_max * yscale)
+        extents = PlotExtents(x_min, x_max, y_min, y_max)
 
         xl = int(x1 * xscale)
         xr = int(x2 * xscale)
@@ -341,13 +356,9 @@ class TuiPlot(Widget):
             if dy == 0:
                 # Single plot point
                 if steep:
-                    if y >= x_min and y < x_max and x >= (y_min-y_min) and x < (y_max-y_min):
-                        self.canvas[x][y] = 1
-                        self.palette[int(x/4)][int(y/2)] = self.style or self.palette[int(x/4)][int(y/2)]
+                    self._putpixel(y, x, extents)
                 else:
-                    if x >= x_min and x < x_max and y >= (y_min-y_min) and y < (y_max-y_min):
-                        self.canvas[y][x] = 1
-                        self.palette[int(y/4)][int(x/2)] = self.style or self.palette[int(y/4)][int(x/2)]
+                    self._putpixel(x, y, extents)
                 return
 
             if yr < yl:
@@ -355,13 +366,9 @@ class TuiPlot(Widget):
             for y in range(yl, yr+1):
                 # Single vertical line
                 if steep:
-                    if y >= x_min and y < x_max and x >= (y_min-y_min) and x < (y_max-y_min):
-                        self.canvas[x][y] = 1
-                        self.palette[int(x/4)][int(y/2)] = self.style or self.palette[int(x/4)][int(y/2)]
+                    self._putpixel(y, x, extents)
                 else:
-                    if x >= x_min and x < x_max and y >= (y_min-y_min) and y < (y_max-y_min):
-                        self.canvas[y][x] = 1
-                        self.palette[int(y/4)][int(x/2)] = self.style or self.palette[int(y/4)][int(x/2)]
+                    self._putpixel(x, y, extents)
                 return
             
         # Error terms
@@ -370,13 +377,9 @@ class TuiPlot(Widget):
 
         while x <= xr:
             if steep:
-                if y >= x_min and y < x_max and x >= (y_min-y_min) and x < (y_max-y_min):
-                    self.canvas[x][y] = 1
-                    self.palette[int(x/4)][int(y/2)] = self.style or self.palette[int(x/4)][int(y/2)]
+                self._putpixel(y, x, extents)
             else:
-                if x >= x_min and x < x_max and y >= (y_min-y_min) and y < (y_max-y_min):
-                    self.canvas[y][x] = 1
-                    self.palette[int(y/4)][int(x/2)] = self.style or self.palette[int(y/4)][int(x/2)]
+                self._putpixel(x, y, extents)
 
             err += derror
             if err > 0.5:
@@ -401,6 +404,18 @@ class TuiPlot(Widget):
 
         if len(self.style_stack) > 0:
             self.style = self.style_stack.pop()
+
+    def push_block_chars(self) -> None:
+        """ Configures the canvas for block character rendering """
+
+        #new_style = Style.combine([self.style, Style(italic=True]))
+        #self.push_line_color(new_style)
+        self.block_chars += 1
+
+    def pop_block_chars(self) -> None:
+        """ Pops the block character mode from the stack """
+        #self.pop_line_color()
+        self.block_chars -= 1
 
     def render_canvas(self) -> None:
         """ Draws the data to the bare canvas """
@@ -505,14 +520,24 @@ class TuiPlot(Widget):
                     text_lines[y] = s[:idx] + f"[not bold white]" + an_text + post
 
     def _putpixel(self, x: int, y: int, ext: PlotExtents) -> None:
+        """ Private method to set/clear a single pixel in the canvas """
+
+        px = int(x/2)
+        py = int(y/4)
+
         if x >= ext.xmin and x < ext.xmax and y >= (ext.ymin-ext.ymin) and y < (ext.ymax-ext.ymin):
             if self.style is not None and self.style.conceal:
                 self.canvas[y][x] = 0
             else:
                 self.canvas[y][x] = 1
-                self.palette[int(y/4)][int(x/2)] = self.style or self.palette[int(y/4)][int(x/2)]
+                if self.block_chars > 0:
+                    self.palette[py][px] = self.style+Style(italic=True) or self.palette[py][px]
+                else:
+                    self.palette[py][px] = self.style or self.palette[py][px]
 
     def _draw_circle_dots(self, xc: int, yc: int, x: int, y: int, ext: PlotExtents, filled: bool = False) -> None:
+        """ Private routine used by the draw_circle method to draw portions of the circle """
+
         if filled:
             x1 = xc-x
             x2 = xc+x

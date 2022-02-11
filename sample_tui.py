@@ -65,21 +65,25 @@ class Graphics(TuiPlot):
         super().__init__(style, name, width, height, border=False)
         self.absolute_coords = True
 
-    def draw_eye(self, x, y):
+    def draw_eye(self, x, y, block_chars = False) -> None:
         """ Test suite for draw_circle and draw_line """
 
         # Draw the eyeball (3 concenric circles with different radius and color)
         scale = 0.75
+        if block_chars:
+            self.push_block_chars()
         self.draw_circle(x, y, int(30*scale), filled=True, color=Style(color="white",bold=True))
         self.draw_circle(x, y, int(20*scale), filled=True, color="bright_blue")
 
         # NOTE: Erase() is defined as Style(conceal=True) which is a color that
         #       erases dots (sets them to zero) vs. drawing with a background color
         self.draw_circle(x, y, int(12*scale), filled=True, color=Erase())
+        self.draw_line(x-5, y-9, x-3, y-12)
+        if block_chars:
+            self.pop_block_chars()
 
         # Draw the eyelashes
         self.push_line_color(Style(color="white",bold=True))
-        self.draw_line(x-5, y-9, x-3, y-12)
         self.draw_line(x-2, y-2, x-1, y-3)
         for angle in range(-50, 51, 10):
             a = angle + 90
@@ -113,13 +117,26 @@ class Graphics(TuiPlot):
     def render_canvas(self) -> None:
         """ Draws a candel and two eyes as a unittest """
 
+        self.draw_eye(30, self.plot_height/2)
+        self.draw_eye(80, self.plot_height/2)
+        self.push_block_chars()
+        self.draw_circle(55, self.plot_height/2+30, 8, color="bright_red")
+        self.pop_block_chars()
+
         # Draw a candle 
         candle_y = self.plot_height/2-23
-        self.draw_rect(130, candle_y, 9, 50, filled=True, color=Style(color="navajo_white3"))
-        self.draw_flame(130, candle_y-2)
-        
-        self.draw_eye(40, self.plot_height/2)
-        self.draw_eye(90, self.plot_height/2)
+        self.draw_flame(115, candle_y-2)
+        self.push_block_chars()
+        self.draw_rect(116, candle_y, 8, 50, filled=True, color=Style(color="navajo_white3"))
+        self.pop_block_chars()
+
+        self.draw_eye(156, self.plot_height/2, True)
+        self.draw_eye(206, self.plot_height/2, True)
+        self.push_block_chars()
+        self.draw_circle(180, self.plot_height/2+30, 8, color="bright_red")
+        self.pop_block_chars()
+
+
 
 class TimePlot(TuiPlot):
     def render_canvas(self) -> None:
