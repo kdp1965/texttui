@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from typing import Optional, TYPE_CHECKING, NamedTuple
 from dataclasses import dataclass
+from contextlib import suppress
 
 from rich.box import Box, ROUNDED
 
@@ -16,6 +17,7 @@ from rich.text import Text, TextType
 from rich.segment import Segment
 from rich.ansi import AnsiDecoder, _ansi_tokenize, SGR_STYLE_MAP
 from rich.color import Color
+from rich.region import Region
 
 from textual.widget import Widget
 from textual.reactive import Reactive
@@ -44,8 +46,10 @@ class Tab:
     render_width: int = 0
     render_height: int = 0
     need_rerender: int = 0
+    dynamic_content: bool = False
     has_close: bool = False
     has_scroll: bool = True
+    _parent: Tabs = None
 
 class TabsRenderable(JupyterMixin):
     """A console renderable that draws a border around its contents.
@@ -462,7 +466,7 @@ class TabsRenderable(JupyterMixin):
         if tab is not None:
             pad_total = left + right
             # Test if re-render required
-            if tab.render_width != width or tab.render_height != height or tab.need_rerender:
+            if tab.render_width != width or tab.render_height != height or tab.need_rerender or tab.dynamic_content:
                 tab.line_cache = []
                 if len(tab.renderables) > 0:
                     self.render_tab_content(
@@ -668,6 +672,8 @@ class Tabs(Widget, can_focus=True):
       yield self.name
 
     def render(self) -> RenderableType:
+        region, clip = self._parent.layout.regions[self]
+        self.child_region = Region(region.x+3, region.y+4, region.width-5, region.height-4)
         return self._tabs
 
     def add_tab(self,
@@ -683,6 +689,7 @@ class Tabs(Widget, can_focus=True):
             line_cache=[],
             renderables=[],
             has_close = has_close,
+            _parent = self,
         )
         if self._tabs.selected == None:
             self._tabs.selected = name
@@ -788,4 +795,9 @@ class Tabs(Widget, can_focus=True):
 
     def has_tab(self, tab_name: str) -> bool:
         return tab_name in self._tabs.tabs
+
+    def get_active_tab(self) -> Tab:
+        if self._tabs.selected is not None:
+            return self._tabs.tabs[self._tabs.selected]
+        return None
 

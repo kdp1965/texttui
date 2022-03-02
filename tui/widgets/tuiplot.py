@@ -1,13 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+try:
+    from PIL import Image
+    have_pil = True
+except:
+    have_pil = False
 
 from rich.panel import Panel
 from rich.style import Style
 from rich.text import Text
+from rich.color import Color, ColorType
+from rich.color_triplet import ColorTriplet
+from rich.segment import Segment, Segments
 from textual.reactive import Reactive
 from textual.widget import Widget
+from textual._timer import Timer
 import math
+import sys
 from typing import NamedTuple
 
 # Defines a color that erases dots vs. setting them to a color
@@ -70,7 +80,9 @@ class TuiPlot(Widget):
         self.title = None
         self.absolute_coords = False
         self.block_chars = 0
-        self._block_char_list = [' ','▘','▖','▍','▝','▀','▞','▛','▗','▚','▄','▙','▐','▜','▟','█']
+        self._block_char_list = [' ','▘','▖','▌','▝','▀','▞','▛','▗','▚','▄','▙','▐','▜','▟','█']
+        self._timer = None
+        self.render_count = 0
 
     def render(self) -> RenderableType:
         """ Renders the graph canvas to a Panel with unicode characters """
@@ -78,6 +90,7 @@ class TuiPlot(Widget):
         # Create a canvas on which to render graphics
         self.canvas = [[0 for col in range(self.width*2)] for row in range(self.height*4)]
         self.palette = [[None for col in range(self.width)] for row in range(self.height)]
+        self.block_palette = [[None for col in range(self.width)] for row in range(self.height*2)]
 
         # Calculate Y axis size
         axis_width = int(self.plot_width/2)+2
@@ -97,30 +110,31 @@ class TuiPlot(Widget):
                 if axis_str_len > y_axis_width:
                     y_axis_width = axis_str_len
         x_offset += y_axis_width
-        axis_width -= y_axis_width
+        axis_width -= y_axis_width*2
 
         # ============================================
         # Render graphics to the raw canvas
         # ============================================
         save_width = self.plot_width
-        self.plot_width -= y_axis_width
+        self.plot_width -= y_axis_width*4+2-4
         if self.absolute_coords:
             self.set_x_extents(0, self.plot_width)
             self.set_y_extents( self.plot_height, 0)
         if self.x_min != self.x_max and self.y_min != self.y_max:
             self.render_canvas()
-        self.plot_width = save_width
 
         # Convert the canvas to and ASCII representation
         text_lines = []
         c = self.canvas
         color = None
         bold = False
+        once = True
         for y in range(self.plot_height-4,-1,-4):
             if color is not None:
                 text = f"[{color}]"
             else:
                 text = ""
+            on_color = None
             for x in range(0,self.plot_width,2):
                 pp = self.palette[int(y/4)][int(x/2)]
                 block = False
@@ -128,10 +142,11 @@ class TuiPlot(Widget):
                     block = pp.italic
                     pp._attributes &= ~4
                 if block:
-                    p =  (c[y+0][x]   | c[y+1][x]) * 2
-                    p += (c[y+2][x]   | c[y+3][x])
-                    p += (c[y+0][x+1] | c[y+1][x+1]) * 8
-                    p += (c[y+2][x+1] | c[y+3][x+1]) * 4
+                    p1 =  (c[y+0][x]   | c[y+1][x]) * 2
+                    p2 =  (c[y+2][x]   | c[y+3][x])
+                    p1 += (c[y+0][x+1] | c[y+1][x+1]) * 8
+                    p2 += (c[y+2][x+1] | c[y+3][x+1]) * 4
+                    p = p1 + p2
                 else:
                     p =  c[y+0][x] * 64
                     p += c[y+1][x] * 4
@@ -150,7 +165,7 @@ class TuiPlot(Widget):
                     else:
                         ch = chr(10240 + p)
                     if pp is not None:
-                        if color is None or pp.color.name != color.color.name:
+                        if color is None or pp.color != color.color:
                             modifier = ""
                             if pp.bold:
                                 modifier = "bold "
@@ -160,13 +175,28 @@ class TuiPlot(Widget):
                                 bold = False
                             else:
                                 modifier = ""
-                            text += f"[{modifier}{pp.color.name}]{ch}"
+                            if block and (p == 15):
+                                ch = self._block_char_list[p1]
+                                if once:
+                                    once = False
+                                if 0 and pp.color.type == ColorType.TRUECOLOR:
+                                    pb = self.block_palette[int(y/2)+1][int(x/2)].color
+                                    text += f"\u001b[38;2;{pp.color.triplet.red};{pp.color.triplet.green};{pp.color.triplet.blue}m"
+                                    text += f"\u001b[48;2;{pb.triplet.red};{pb.triplet.green};{pb.triplet.blue}m{ch}"
+                                else:
+                                    on_color = f'{self.block_palette[int(y/2)+1][int(x/2)].color.name}'
+                                    text += f"[{modifier}{pp.color.name}][on {on_color}]{ch}[/on {on_color}]"
+                                    #text += f"[{modifier}{pp.color.name}][on {on_color}]{ch}"
+                            else:
+                                text += f"[{modifier}{pp.color.name}]{ch}"
                             color = pp
                             block = color.italic
                         else:
                             text += ch
                     else:
                         text += ch
+            if on_color is not None:
+                text += f"[on black]"
             text += "\n"
             text_lines.append(text)
 
@@ -251,6 +281,8 @@ class TuiPlot(Widget):
                 text = "[white]" + self.x_label.center(axis_width)
             text_lines.append(text)
 
+        self.plot_width = save_width
+
         # Render the Title, if any
         if self.title is not None:
             text = str(self.title).center(self.width)
@@ -302,9 +334,11 @@ class TuiPlot(Widget):
         """ Sets the plot window width in columns """
 
         self.width = width
-        self.plot_width = (width - 8) * 2
+        self.plot_width = (width - 6) * 2
+        if self.border:
+            self.plot_width -= 8
         if self.y_label is not None:
-            self.plot_width -= 2
+            self.plot_width -= 4
 
     def draw_line(self,
             x1: float,
@@ -532,6 +566,7 @@ class TuiPlot(Widget):
                 self.canvas[y][x] = 1
                 if self.block_chars > 0:
                     self.palette[py][px] = self.style+Style(italic=True) or self.palette[py][px]
+                    self.block_palette[int(y/2)][px] = self.style+Style(italic=True) or self.block_palette[int(y/2)][px]
                 else:
                     self.palette[py][px] = self.style or self.palette[py][px]
 
@@ -653,3 +688,149 @@ class TuiPlot(Widget):
         if color is not None:
             self.pop_line_color()
 
+    def draw_pbm(self, x: float, y: float, filename: str) -> None:
+        """ Render an PBM image from filename to x,y """
+
+        if not have_pil:
+            self.draw_circle(x+20, y+20, 3)
+            return
+
+        img = Image.open(filename)
+        px = img.load()
+        
+        # Account for frame and padding
+        xscale = self.plot_width / (self.x_max - self.x_min)
+        yscale = self.plot_height / (self.y_max - self.y_min)
+
+        x_min = int(self.x_min * xscale)
+        x_max = int(self.x_max * xscale)
+        y_min = int(self.y_min * yscale)
+        y_max = int(self.y_max * yscale)
+        extents = PlotExtents(x_min, x_max, y_min, y_max)
+
+        xp = int(x * xscale)
+        yp = int(y * yscale) - y_min
+
+        for y1 in range(img.height):
+            for x1 in range(img.width):
+                if isinstance(px[x1,y1], tuple):
+                    if px[x1,y1] != (0, 0, 0):
+                        self._putpixel(int(x1*xscale), int(y1*yscale)-y_min, extents)
+                else:
+                    if px[x1,y1]:
+                        self._putpixel(int(x1*xscale), int(y1*yscale)-y_min, extents)
+
+    def draw_image(self, x: float, y: float, filename: str) -> None:
+        """ Render an PBM image from filename to x,y """
+
+        if not have_pil:
+            self.draw_circle(x+20, y+20, 3)
+            return
+
+#        img = Image.open(filename)
+#        rgb_img = img.convert('RGB')
+        
+        # Account for frame and padding
+        xscale = self.plot_width / (self.x_max - self.x_min)
+        yscale = self.plot_height / (self.y_max - self.y_min)
+
+        x_min = int(self.x_min * xscale)
+        x_max = int(self.x_max * xscale)
+        y_min = int(self.y_min * yscale)
+        y_max = int(self.y_max * yscale)
+        extents = PlotExtents(x_min, x_max, y_min, y_max)
+
+        xp = int(x * xscale)
+        yp = int(y * yscale) - y_min
+
+        self.image_xp = int(x)
+        self.image_yp = int(y)
+        self.extents = extents
+        self.img_filename = filename
+
+        self._parent.get_active_tab().dynamic_content = True
+
+        if self._timer is None:
+            self._timer = Timer(
+                self._parent,
+                1/100,
+                self._parent,
+                name="Animator",
+                callback=self,
+                pause=True,
+            )
+            self._timer.start()
+        else:
+            self._timer.start()
+
+#       This code is too slow for large image, but left in case I want to use it for smaller images later.
+#
+#       self.push_line_color("white")
+#       self.push_block_chars()
+#       for y1 in range(img.height):
+#           for x1 in range(img.width):
+#               r,g,b = rgb_img.getpixel((x1, y1))
+#               #self.style = Style(color=Color.from_ansi(16+36*int(r/43)+6*int(g/43)+int(b/43)))
+#               self.style = Style(color=Color.from_triplet(ColorTriplet(red=r,green=g,blue=b)))
+#               #self.style = Style(color=f"#{r:02x}{g:02x}{b:02x}")
+#               self._putpixel(int(x1*xscale), int(y1*yscale)-y_min, extents)
+#       self.pop_block_chars()
+#       self.pop_line_color()
+
+    async def __call__(self) -> None:
+        """ Callback to render images directly to the display """
+        img = Image.open(self.img_filename)
+        rgb_img = img.convert('RGB')
+        region = self._parent.child_region
+
+        y = region.y + int(self.image_yp/4)
+        x = region.x + int(self.image_xp/2)
+
+        scale = 1.0
+        height = region.height
+        width = region.width
+        if img.height > region.height*4:
+            scale = region.height*4 / img.height
+            width = int(img.width/2*scale)
+
+        if width > region.width:
+            scale = region.width*2 / img.width
+            height = int(img.height/4*scale)
+            width = region.width
+
+        if scale != 1.0:
+            ylist = []
+            xlist = []
+            for i in range(height):
+                ylist.append(int(img.height * i / height))
+            for i in range(width):
+                xlist.append(int(img.width * i / width))
+            yoffset = int(img.height / height / 2)
+            #img.thumbnail((int(img.width*yscale),int(img.height*yscale)))
+            #img.thumbnail((region.width*2,region.height*4))
+            #img = img.resize((int(img.width*scale),int(img.height*scale)),Image.ANTIALIAS)
+
+        else:
+            ylist = range(0, img.height, 4)
+            yoffset = 2
+            xlist = range(0, img.width, 2)
+
+        yp = 0
+        for y1 in ylist:
+           print(f"\x1b[{y};{x}H",end="")
+           xp = 0
+           for x1 in xlist:
+               r,g,b = rgb_img.getpixel((x1, y1))
+               r2,g2,b2 = rgb_img.getpixel((x1, y1+yoffset))
+               print(f'\x1b[38;2;{r2};{g2};{b2}m\x1b[48;2;{r};{g};{b}m▄',end="")
+               xp += 1
+               if xp-1 == region.width:
+                   break
+           y += 1
+           yp += 1
+           if yp-1 == region.height:
+               break
+
+        self.render_count += 1
+        print(f"\x1b[{y};{x}H\x1b[0m",end="")
+        sys.stdout.flush()

@@ -52,6 +52,174 @@ from tui.widgets.dynamic import RenderableUpdate
 # ===================================================
 # A class to render the "Graphics" tab images
 # ===================================================
+class PBMStereo(TuiPlot):
+    def __init__(
+        self,
+        style: StyleType = None,
+        name: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ):
+        """ Initialize a Graphics graph with image rending test routines """
+
+        super().__init__(style, name, width, height, border=False)
+        self.absolute_coords = True
+        width = 50
+        self.cube_width = width
+        height = 44
+        self.img = 0
+        self.xcoords_left = [
+                int(-0.2*width),
+                0,
+                int(width/2 -0.15*width),
+                int(width/2 -0.05*width),
+                int(width-0.2*width),
+                width
+        ]
+        self.xcoords_right = [
+                int(-0.3*width),
+                0,
+                int(width/2 -0.25*width),
+                int(width/2 +0.05*width),
+                int(width-0.3*width),
+                width
+        ]
+        self.ycoords = [
+                0,
+                int(0.2*height),
+                int(height/2-0.07*height),
+                int(height/2),
+                int(height/2+0.15*height),
+                int(height/2+0.17*height),
+                height,
+                int(height+0.2*height)
+        ]
+
+    async def next(self):
+        self.img += 1
+        if self.img > 2:
+            self.img = 0
+
+    def draw_cube_shape(self, x, y, xcoords, ycoords):
+        self.push_line_color(Style(color="white", bold=True))
+
+        # Draw back face first
+        self.draw_line(x + xcoords[1], y+ycoords[0], x+xcoords[5],y+ycoords[0])
+        self.draw_line(x + xcoords[5], y+ycoords[0], x+xcoords[5],y+ycoords[6])
+        self.draw_line(x + xcoords[5], y+ycoords[6], x+xcoords[1],y+ycoords[6])
+        self.draw_line(x + xcoords[1], y+ycoords[6], x+xcoords[1],y+ycoords[0])
+
+        # Draw leftmost triangle shape
+        self.draw_line(x + xcoords[1], y+ycoords[0], x+xcoords[0],y+ycoords[4])
+        self.draw_line(x + xcoords[0], y+ycoords[4], x+xcoords[3],y+ycoords[2])
+        self.draw_line(x + xcoords[3], y+ycoords[2], x+xcoords[1],y+ycoords[0])
+        self.draw_line(x + xcoords[3], y+ycoords[2], x+xcoords[3],y+ycoords[0])
+        self.draw_line(x + xcoords[0], y+ycoords[4], x+xcoords[3],y+ycoords[0])
+
+        # Draw rightmost triangle shape
+        self.draw_line(x + xcoords[2], y+ycoords[5], x+xcoords[5],y+ycoords[3])
+        self.draw_line(x + xcoords[5], y+ycoords[3], x+xcoords[4],y+ycoords[7])
+        self.draw_line(x + xcoords[4], y+ycoords[7], x+xcoords[2],y+ycoords[5])
+        self.draw_line(x + xcoords[2], y+ycoords[5], x+xcoords[2],y+ycoords[7])
+        self.draw_line(x + xcoords[2], y+ycoords[7], x+xcoords[5],y+ycoords[3])
+
+        self.draw_line(x + xcoords[2], y+ycoords[5], x+xcoords[3],y+ycoords[2])
+
+        # Draw the cube sides
+        self.draw_line(x + xcoords[1], y+ycoords[0], x+xcoords[0],y+ycoords[1])
+        self.draw_line(x + xcoords[5], y+ycoords[0], x+xcoords[4],y+ycoords[1])
+        self.draw_line(x + xcoords[1], y+ycoords[6], x+xcoords[0],y+ycoords[7])
+        self.draw_line(x + xcoords[5], y+ycoords[6], x+xcoords[4],y+ycoords[7])
+
+        # Draw the front face
+        self.draw_line(x + xcoords[0], y+ycoords[1], x+xcoords[4],y+ycoords[1])
+        self.draw_line(x + xcoords[4], y+ycoords[1], x+xcoords[4],y+ycoords[7])
+        self.draw_line(x + xcoords[4], y+ycoords[7], x+xcoords[0],y+ycoords[7])
+        self.draw_line(x + xcoords[0], y+ycoords[7], x+xcoords[0],y+ycoords[1])
+        
+        self.pop_line_color()
+
+    def render_canvas(self) -> None:
+        """ Draws the image to the canvas """
+
+        #self.draw_pbm(0, 0, "imgs/pyramids.ppm")
+
+        if self.img == 1:
+            self.push_line_color(Style(color="white", bold=True))
+            self.draw_pbm(0, 0, "imgs/Chess_Stereogram.ppm")
+            self.pop_line_color()
+
+        elif self.img == 0:
+            self.push_line_color(Style(color="white", bold=True))
+            self.draw_pbm(0, 0, "imgs/stereo.pbm")
+            self.pop_line_color()
+
+        elif self.img == 2:
+            self.draw_cube_shape(40, 10, self.xcoords_left, self.ycoords)
+            self.draw_cube_shape(40 + int(1.6 * self.cube_width), 10, self.xcoords_right, self.ycoords)
+
+
+class Slideshow:
+    def __init__(self, parent):
+        self.parent = parent
+
+    async def __call__(self) -> None:
+        if self.parent._timer is not None:
+            if self.parent.which_img == len(self.parent.images)-1:
+                self.parent.which_img = 0
+            else:
+                self.parent.which_img += 1
+            await self.parent._parent.post_message(RenderableUpdate(self))
+
+# ===================================================
+# A class to render the "Graphics" tab images
+# ===================================================
+class PBMSlideshow(TuiPlot):
+    def __init__(
+        self,
+        style: StyleType = None,
+        name: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ):
+        """ Initialize a Graphics graph with image rending test routines """
+
+        super().__init__(style, name, width, height, border=False)
+        self.absolute_coords = True
+        self._slideshow_timer = None
+        self.images = ["mona_lisa.ppm","pyramids.ppm","Einstein.ppm","Marilyn.ppm","wizard.ppm", "sombrero.ppm" ]
+        self.which_img = 0
+        self.slideshow = Slideshow(self)
+
+    def render_canvas(self) -> None:
+        """ Draws the image to the canvas """
+
+        if self._slideshow_timer is None:
+            self._slideshow_timer = Timer(
+                self._parent,
+                2,
+                self._parent,
+                name="Animator",
+                callback=self.slideshow,
+                pause=True,
+            )
+            self._slideshow_timer.start()
+        else:
+            self._slideshow_timer.resume()
+
+        self.push_line_color(Style(color="white", bold=True))
+
+        #self.draw_image(0, 0, "imgs/squares.jpg")
+        #self.draw_image(0, 0, "imgs/Marilyn.ppm")
+        #self.draw_image(0, 0, "imgs/mona_lisa.ppm")
+        #self.draw_image(0, 0, "imgs/wizard.ppm")
+
+        self.draw_image(0, 0, f"imgs/{self.images[self.which_img]}")
+        self.pop_line_color()
+
+# ===================================================
+# A class to render the "Graphics" tab images
+# ===================================================
 class Graphics(TuiPlot):
     def __init__(
         self,
@@ -119,14 +287,12 @@ class Graphics(TuiPlot):
 
         self.draw_eye(30, self.plot_height/2)
         self.draw_eye(80, self.plot_height/2)
-        self.push_block_chars()
         self.draw_circle(55, self.plot_height/2+30, 8, color="bright_red")
-        self.pop_block_chars()
 
         # Draw a candle 
         candle_y = self.plot_height/2-23
-        self.draw_flame(115, candle_y-2)
         self.push_block_chars()
+        self.draw_flame(115, candle_y-2)
         self.draw_rect(116, candle_y, 8, 50, filled=True, color=Style(color="navajo_white3"))
         self.pop_block_chars()
 
@@ -198,6 +364,8 @@ class FftPlot(TuiPlot):
                 pause=True,
             )
             self._timer.start()
+        else:
+            self._timer.start()
 
         """ Draws the FFT to the bare canvas """
 
@@ -242,7 +410,6 @@ class FftPlot(TuiPlot):
             else:
                 self.which_fft += 1
             await self._parent.post_message(RenderableUpdate(self))
-            self._timer.start()
 
 class SampleAppHeader(Header):
     def render(self) -> RenderableType:
@@ -528,6 +695,7 @@ class MyApp(App):
         # Bind our basic keys
         await self.bind("b", "view.toggle('controls')", "Toggle controls")
         await self.bind("ctrl+d", "quit", "Quit")
+        await self.bind("ctrl+n", "app.next_stereo()", "Next Stereograph")
 
         # Get path to show
         try:
@@ -536,6 +704,9 @@ class MyApp(App):
             self.path = os.path.abspath(
                 os.path.join(os.path.basename(__file__), "../../")
             )
+
+    async def next_stereo(self) -> None:
+        self.stereo.next()
 
     async def on_mount(self) -> None:
         """Call after terminal goes in to application mode"""
@@ -554,6 +725,8 @@ class MyApp(App):
         self.body.add_tab("graph", "Time Plot")
         self.body.add_tab("fft", "FFT Plot")
         self.body.add_tab("graphics", "Graphics")
+        self.body.add_tab("pbm", "PBM")
+        self.body.add_tab("3d", "Stereograph")
 
         # Add content to the command history tab
         cmdText = "[yellow]Command History\n\n[white]This is an example of a Dynamic Widget that displays text which can be changed dynamically.\n\n"
@@ -574,10 +747,13 @@ class MyApp(App):
         self.body.add_renderable("controls", Dynamic('Below is a "DynamicTable" that updates when the Droplist controls (left) update.\n',name="table"))
         self.body.add_renderable("controls", self.ctrl_table)
 
+        self.stereo = PBMStereo(name="3d",style=Style(color="grey63"))
         self.body.add_renderable("graph", Dynamic("Time Domain Plot",name="time"))
         self.body.add_renderable("graph", TimePlot(name="graph",style=Style(color="grey63")))
         self.body.add_renderable("fft", FftPlot(name="fft",style=Style(color="grey63")))
         self.body.add_renderable("graphics", Graphics(name="graphics",style=Style(color="grey63")))
+        self.body.add_renderable("pbm", PBMSlideshow(name="pbm",style=Style(color="grey63")))
+        self.body.add_renderable("3d", self.stereo)
 
         # Create the bottom Command Line Interface (CLI) and the control panel
         self.cmd = CliInput(process_command, name="cli", title="Command Window", height=cli_height)
